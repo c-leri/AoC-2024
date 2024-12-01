@@ -1,8 +1,4 @@
-use std::{
-    cmp::{max, min},
-    fs::File,
-    io::Read,
-};
+use std::{collections::HashMap, fs::File, io::Read};
 
 fn main() {
     // ================================
@@ -18,51 +14,36 @@ fn main() {
     // ================================
     //           PARSE INPUT
     // ================================
-    let mut columns: Vec<Vec<u32>> = vec![vec![], vec![]];
+    let mut left_column: Vec<u32> = vec![];
+    let mut right_column_appearances: HashMap<u32, u32> = HashMap::new();
 
     for (i, line) in input_text.lines().enumerate() {
-        let nums_str: Vec<&str> = line.split("   ").collect();
+        let nums: Vec<u32> = line
+            .split("   ")
+            .map(|num_str| {
+                num_str.parse::<u32>().unwrap_or_else(|e| {
+                    panic!("Unable to parse number {} at line {}: {:?}", num_str, i, e)
+                })
+            })
+            .collect();
 
-        for (j, column) in columns.iter_mut().enumerate() {
-            let num_str = nums_str
-                .get(j)
-                .unwrap_or_else(|| panic!("Unable to read left number at line {}", i));
+        let left_num = *nums.first().unwrap();
+        left_column.push(left_num);
 
-            let num = num_str.parse().unwrap_or_else(|e| {
-                panic!(
-                    "Unable to parse left number {} at line {}: {:?}",
-                    num_str, i, e
-                )
-            });
-
-            column.push(num);
+        let right_num = *nums.get(1).unwrap();
+        if let Some(appearances) = right_column_appearances.get_mut(&right_num) {
+            *appearances += 1;
+        } else {
+            right_column_appearances.insert(right_num, 1);
         }
     }
 
     // ================================
-    //           SORT LISTS
+    //         CALCULATE RESULT
     // ================================
-    columns.iter_mut().for_each(|column| column.sort());
-
-    // ================================
-    //        CALCULATE DISTANCE
-    // ================================
-    let mut result: u32 = 0;
-
-    for (i, left_num) in columns
-        .first()
-        .expect("Couldn't get left column ???")
-        .iter()
-        .enumerate()
-    {
-        let right_num = columns
-            .get(1)
-            .expect("Couldn't get right column ???")
-            .get(i)
-            .unwrap_or_else(|| panic!("Couldn't retrieve number at line {}", i));
-
-        result += max(*left_num, *right_num) - min(*left_num, *right_num);
-    }
+    let result = left_column.iter().copied().fold(0, |acc, num| {
+        acc + num * right_column_appearances.get(&num).unwrap_or(&0)
+    });
 
     println!("Result: {}", result);
 }
