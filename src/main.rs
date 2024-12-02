@@ -2,12 +2,29 @@ use core::panic;
 use std::{fs::File, io::Read};
 
 fn is_report_safe(report: &[i16]) -> bool {
-    // Ascending or descending with no duplicates
-    (report.is_sorted_by(|a, b| a < b) || report.is_sorted_by(|a, b| a > b))
-        && !report
-            .windows(2)
-            // No steps of more than 3
-            .any(|w| w[0] < w[1] - 3 || w[0] > w[1] + 3)
+    // Ascending or descending with no duplicates and steps of maximum 3
+    report.is_sorted_by(|a, b| a < b && a + 3 >= *b)
+        || report.is_sorted_by(|a, b| a > b && a - 3 <= *b)
+}
+
+/// Tries every possible version of this report
+/// with one less element until one of them is safe
+fn is_report_safe_with_problem_dampener(report: &[i16]) -> bool {
+    // First check the normal report
+    is_report_safe(report)
+        || (0..report.len())
+            .map(|i| {
+                // Version of the report without the element of index i
+                report[..i]
+                    .iter()
+                    .chain(&report[i + 1..report.len()])
+                    .copied()
+                    .collect::<Vec<_>>()
+            })
+            .any(|report_without_i| {
+                // Check the safety of this report
+                is_report_safe(&report_without_i)
+            })
 }
 
 fn main() {
@@ -41,11 +58,13 @@ fn main() {
     // ================================
     //        COUNT SAFE REPORTS
     // ================================
-    let nb_safe_reports =
-        reports.iter().fold(
-            0,
-            |acc, report| if is_report_safe(report) { acc + 1 } else { acc },
-        );
+    let nb_safe_reports = reports.iter().fold(0, |acc, report| {
+        if is_report_safe_with_problem_dampener(report) {
+            acc + 1
+        } else {
+            acc
+        }
+    });
 
     println!("Result: {}", nb_safe_reports);
 }
