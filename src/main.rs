@@ -4,6 +4,7 @@ use std::{fs::File, io::Read};
 use regex::Regex;
 
 const MUL_ARGS_RE: &str = r"mul\(([0-9]{1,3}),([0-9]{1,3})\)";
+const DONT_DO_RE: &str = r"don't\(\)[\S\s]*?(do\(\)|$)";
 
 fn extract_mul_args(input: &str) -> Vec<[u32; 2]> {
     // Regex that matches the arguments of a mul
@@ -25,14 +26,26 @@ fn extract_mul_args(input: &str) -> Vec<[u32; 2]> {
         .collect()
 }
 
-fn process(input: &str) -> u32 {
-    let muls_args = extract_mul_args(input);
+fn extract_outside_of_dont_do(input: &str) -> Vec<&str> {
+    // Regex that matches a substring starting with "dont't()"
+    // and ending with either "do()" or the end of the string
+    let re = Regex::new(DONT_DO_RE).unwrap();
 
-    muls_args
+    // Return the substrings NOT matched by the regex
+    re.split(input).collect()
+}
+
+fn process(input: &str) -> u32 {
+    extract_outside_of_dont_do(input)
         .iter()
-        // Calculate the multiplications
-        .map(|args| args[0] * args[1])
-        // Sum all the results
+        .flat_map(|substr| {
+            // Get the args of each mul of each substring
+            extract_mul_args(substr)
+                .into_iter()
+                // Calculate the multiplications
+                .map(|args| args[0] * args[1])
+        })
+        // Sum everything together
         .sum()
 }
 
@@ -54,9 +67,27 @@ mod tests {
 
     #[test]
     fn test() {
-        let input = "xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))";
+        let input = "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))";
 
-        let expected_result = 161;
+        let expected_result = 48;
+
+        assert_eq!(process(input), expected_result);
+    }
+
+    #[test]
+    fn test_multiple_dont_do() {
+        let input = "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))";
+
+        let expected_result = 88;
+
+        assert_eq!(process(input), expected_result);
+    }
+
+    #[test]
+    fn test_dont_without_do() {
+        let input = "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))don't()_mul(5,5)";
+
+        let expected_result = 88;
 
         assert_eq!(process(input), expected_result);
     }
